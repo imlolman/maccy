@@ -35,6 +35,7 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
     isFloatingPanel = true
     level = .statusBar
     collectionBehavior = [.auxiliary, .stationary, .moveToActiveSpace, .fullScreenAuxiliary]
+    minSize = NSSize(width: 300, height: 500)
     titleVisibility = .hidden
     titlebarAppearsTransparent = true
     isMovableByWindowBackground = true
@@ -65,8 +66,31 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
   }
 
   func open(height: CGFloat, at popupPosition: PopupPosition = Defaults[.popupPosition]) {
-    setContentSize(NSSize(width: frame.width, height: min(height, Defaults[.windowSize].height)))
-    setFrameOrigin(popupPosition.origin(size: frame.size, statusBarButton: statusBarButton))
+    // Prioritize saved size, but ensure it respects minSize
+    let lastSize = Defaults[.windowSize]
+    var targetSize = NSSize(width: max(lastSize.width, minSize.width), 
+                            height: max(lastSize.height, minSize.height))
+    
+    // If calculated content height is larger than saved/min height, allow expansion up to screen height
+    let calculatedHeight = min(height, (NSScreen.main?.visibleFrame.height ?? 800))
+    targetSize.height = max(targetSize.height, calculatedHeight) 
+
+    print("[FloatingPanel.open] Setting initial size: \(targetSize) (saved: \(lastSize), min: \(minSize), calculated content: \(height))")
+    setContentSize(targetSize)
+    
+    // Use saved position if available for non-statusItem modes
+    var targetOrigin: NSPoint
+    if popupPosition != .statusItem, let screenFrame = screen?.visibleFrame, Defaults[.windowPosition] != .zero {
+        let savedRelativePos = Defaults[.windowPosition]
+        targetOrigin = NSPoint(x: screenFrame.minX + (savedRelativePos.x * screenFrame.width) - (targetSize.width / 2),
+                               y: screenFrame.minY + (savedRelativePos.y * screenFrame.height) - targetSize.height)
+        print("[FloatingPanel.open] Using saved position: \(targetOrigin)")
+    } else {
+        targetOrigin = popupPosition.origin(size: targetSize, statusBarButton: statusBarButton)
+        print("[FloatingPanel.open] Using calculated position: \(targetOrigin) for mode: \(popupPosition)")
+    }
+    setFrameOrigin(targetOrigin)
+
     orderFrontRegardless()
     makeKey()
     isPresented = true
@@ -80,11 +104,14 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
 
   func verticallyResize(to newHeight: CGFloat) {
     var newSize = Defaults[.windowSize]
-    newSize.height = min(newHeight, newSize.height)
+    // Apply minimum height constraint from minSize
+    let finalHeight = max(min(newHeight, newSize.height), minSize.height)
+    newSize.height = finalHeight
 
     var newOrigin = frame.origin
     newOrigin.y += (frame.height - newSize.height)
 
+    print("[FloatingPanel.verticallyResize] Resizing to height: \(finalHeight) (requested: \(newHeight), maxDefault: \(Defaults[.windowSize].height), min: \(self.minSize.height))")
     NSAnimationContext.runAnimationGroup { (context) in
       context.duration = 0.2
       animator().setFrame(NSRect(origin: newOrigin, size: newSize), display: true)
@@ -120,6 +147,8 @@ class FloatingPanel<Content: View>: NSPanel, NSWindowDelegate {
     super.close()
     isPresented = false
     statusBarButton?.isHighlighted = false
+    
+    // State reset is handled in the Popup.close() method
   }
 
   // Allow text inputs inside the panel can receive focus

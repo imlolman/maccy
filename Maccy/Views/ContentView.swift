@@ -43,6 +43,7 @@ struct ContentView: View {
     }
     .environment(appState)
     .environment(modifierFlags)
+    .environment(History.shared)
     .environment(\.scenePhase, scenePhase)
     // FloatingPanel is not a scene, so let's implement custom scenePhase..
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
@@ -56,7 +57,11 @@ struct ContentView: View {
       if let window = $0.object as? NSWindow,
          let bundleIdentifier = Bundle.main.bundleIdentifier,
          window.identifier == NSUserInterfaceItemIdentifier(bundleIdentifier) {
-        scenePhase = .background
+        scenePhase = .inactive
+        // Remove resetting view on becoming inactive to reduce resize triggers
+        // Task {
+        //   try? await appState.history.resetView()
+        // }
       }
     }
     .onReceive(NotificationCenter.default.publisher(for: NSPopover.willShowNotification)) {
@@ -74,5 +79,6 @@ struct ContentView: View {
 #Preview {
   ContentView()
     .environment(\.locale, .init(identifier: "en"))
+    .environment(History.shared)
     .modelContainer(Storage.shared.container)
 }

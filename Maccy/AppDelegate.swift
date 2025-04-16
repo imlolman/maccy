@@ -3,7 +3,7 @@ import KeyboardShortcuts
 import Sparkle
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
   var panel: FloatingPanel<ContentView>!
 
   @objc

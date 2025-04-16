@@ -57,9 +57,11 @@ struct StorageSettingsPane: View {
   }
 
   @Default(.size) private var size
+  @Default(.pageSize) private var pageSize
   @Default(.sortBy) private var sortBy
 
   @State private var viewModel = ViewModel()
+  @State private var storageSizeText: String = ""
 
   private let sizeFormatter: NumberFormatter = {
     let formatter = NumberFormatter()
@@ -96,12 +98,22 @@ struct StorageSettingsPane: View {
           TextField("", value: $size, formatter: sizeFormatter)
             .frame(width: 80)
             .help(Text("SizeTooltip", tableName: "StorageSettings"))
-          Stepper("", value: $size, in: 1...9999)
+          Stepper("", value: $size, in: 1...10000)
             .labelsHidden()
-          Text(Storage.shared.size)
+          Text(storageSizeText)
             .controlSize(.small)
             .foregroundStyle(.gray)
             .help(Text("CurrentSizeTooltip", tableName: "StorageSettings"))
+        }
+      }
+      
+      Settings.Section(label: { Text("Items Per Page:", tableName: "StorageSettings") }) {
+        HStack {
+          TextField("", value: $pageSize, formatter: sizeFormatter)
+            .frame(width: 80)
+            .help(Text("Number of items to load each time", tableName: "StorageSettings"))
+          Stepper("", value: $pageSize, in: 10...1000)
+            .labelsHidden()
         }
       }
 
@@ -114,6 +126,12 @@ struct StorageSettingsPane: View {
         .labelsHidden()
         .frame(width: 160)
         .help(Text("SortByTooltip", tableName: "StorageSettings"))
+      }
+    }
+    .task {
+      await MainActor.run {
+        // Safe way to access Storage.shared.size
+        storageSizeText = Storage.shared.size
       }
     }
   }

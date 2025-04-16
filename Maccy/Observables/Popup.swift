@@ -29,11 +29,16 @@ class Popup {
 
   func close() {
     AppState.shared.appDelegate?.panel.close()
+    // Reset state when window is closed
+    Task {
+      try? await AppState.shared.history.resetView()
+    }
   }
 
   func resize(height: CGFloat) {
-    self.height = height + headerHeight + pinnedItemsHeight + footerHeight + (verticalPadding * 2)
-    AppState.shared.appDelegate?.panel.verticallyResize(to: self.height)
+    let newHeight = height + headerHeight + pinnedItemsHeight + footerHeight + (verticalPadding * 2)
+    print("[Popup.resize] Calculated newHeight: \(newHeight) (list=\(height), pinned=\(pinnedItemsHeight)) -> Calling verticallyResize")
+    AppState.shared.appDelegate?.panel.verticallyResize(to: newHeight)
     needsResize = false
   }
 }
